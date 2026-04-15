@@ -60,7 +60,7 @@ def load_data():
     return macro_data, df, latest_date
 
 # UI表示
-st.title("📈 真・投資定点スクリーナー")
+st.title("📊 ポートフォリオ・アナリティクス")
 
 try:
     with st.spinner("最新データを取得中..."):
