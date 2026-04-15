@@ -36,10 +36,8 @@ def add_trend_icon(row):
 
 @st.cache_data(ttl=3600)
 def load_data():
-    # 🔴 あなたのスプレッドシートURL
     SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1oomwgYozZgl9N9etkZkcqennHprrKX4h65VqqlsCV2E/edit"
     
-    # 秘密鍵の読み込み
     scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
     credentials = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"], scopes=scopes
@@ -47,7 +45,6 @@ def load_data():
     gc = gspread.authorize(credentials)
     ss = gc.open_by_url(SPREADSHEET_URL)
     
-    # 🌟修正1：Marketシートが無い場合はエラーにせず、デフォルト値を使う
     try:
         sheet_market = ss.worksheet("Market")
         macro_row = sheet_market.get_all_values()[-1] 
@@ -81,17 +78,15 @@ try:
         df['アップサイド(%)'] = df.get('④株価 / 目標株価', pd.Series(['']*len(df))).apply(calculate_upside).fillna(15.0)
         df['表示名'] = df.apply(add_trend_icon, axis=1)
 
-        # 🌟修正2：「💡最終判断」に列名を統一
         def build_hover(row):
-            return (f"<b>{row['銘柄']}</b><br>PER: {row['PER']} / ROE: {row['ROE']}<br>アクション: {row.get('💡最終判断', '不明')}")
+            return (f"<b>{row['銘柄']}</b><br>PER: {row['PER']} / ROE: {row['ROE']}<br>アクション: {row.get('💡総合投資アクション', '不明')}")
         df['ホバー情報'] = df.apply(build_hover, axis=1)
 
         bg_colors = {'通常': '#f8f9fa', '注意': '#fffdf0', '警戒': '#fff5f5'}
         current_bg = next((color for key, color in bg_colors.items() if key in macro_data['地合い判定']), '#ffffff')
 
-        # 🌟修正2：「💡最終判断」に列名を統一
         fig = px.scatter(
-            df, x="PER_viz", y="ROE_viz", size="アップサイド(%)", color="💡最終判断", 
+            df, x="PER_viz", y="ROE_viz", size="アップサイド(%)", color="💡総合投資アクション", 
             hover_name="ホバー情報", text="表示名",
             labels={'PER_viz': '割安度 (PER)', 'ROE_viz': '稼ぐ力 (ROE)'},
             color_discrete_map={
