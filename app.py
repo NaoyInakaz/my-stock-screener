@@ -75,7 +75,11 @@ try:
         df['ROE_num'] = df['ROE'].apply(lambda x: safe_float(x, np.nan))
         df['PER_viz'] = df['PER_num'].fillna(0).clip(lower=0, upper=MAX_PER)
         df['ROE_viz'] = df['ROE_num'].fillna(MIN_ROE).clip(lower=MIN_ROE, upper=MAX_ROE)
-        df['アップサイド(%)'] = df.get('④株価 / 目標株価', pd.Series(['']*len(df))).apply(calculate_upside).fillna(15.0)
+        
+        # 🌟修正: 列名を「④現在株価 / 目標株価」に合わせ、NaN(エラー値)を強制的に排除する処理を追加
+        df['アップサイド(%)'] = df.get('④現在株価 / 目標株価', pd.Series(['']*len(df))).apply(calculate_upside)
+        df['アップサイド(%)'] = pd.to_numeric(df['アップサイド(%)'], errors='coerce').fillna(15.0).clip(lower=5.0)
+        
         df['表示名'] = df.apply(add_trend_icon, axis=1)
 
         def build_hover(row):
