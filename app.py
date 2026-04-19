@@ -7,7 +7,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # ページの設定
-st.set_page_config(layout="wide", page_title="My Stock Screener")
+st.set_page_config(layout="wide", page_title="ポートフォリオ・アナリティクス")
 
 def safe_float(val, default_val):
     if pd.isna(val) or val is None or str(val).strip() == "" or str(val).strip() == "-": return default_val
@@ -76,21 +76,39 @@ try:
         df['PER_viz'] = df['PER_num'].fillna(0).clip(lower=0, upper=MAX_PER)
         df['ROE_viz'] = df['ROE_num'].fillna(MIN_ROE).clip(lower=MIN_ROE, upper=MAX_ROE)
         
-        # 🌟修正: 列名を「④現在株価 / 目標株価」に合わせ、NaN(エラー値)を強制的に排除する処理を追加
         df['アップサイド(%)'] = df.get('④現在株価 / 目標株価', pd.Series(['']*len(df))).apply(calculate_upside)
         df['アップサイド(%)'] = pd.to_numeric(df['アップサイド(%)'], errors='coerce').fillna(15.0).clip(lower=5.0)
         
         df['表示名'] = df.apply(add_trend_icon, axis=1)
 
+        # 🌟修正1：ホバー情報に「業種」を表示するように追加
         def build_hover(row):
-            return (f"<b>{row['銘柄']}</b><br>PER: {row['PER']} / ROE: {row['ROE']}<br>アクション: {row.get('💡総合投資アクション', '不明')}")
+            sector = row.get('業種', '未分類')
+            return (f"<b>{row['銘柄']}</b> ({sector})<br>PER: {row['PER']} / ROE: {row['ROE']}<br>アクション: {row.get('💡総合投資アクション', '不明')}")
         df['ホバー情報'] = df.apply(build_hover, axis=1)
 
         bg_colors = {'通常': '#f8f9fa', '注意': '#fffdf0', '警戒': '#fff5f5'}
         current_bg = next((color for key, color in bg_colors.items() if key in macro_data['地合い判定']), '#ffffff')
 
+        # 🌟修正2：業種フィルター（プルダウンメニュー）の実装
+        if '業種' in df.columns:
+            df['業種'] = df['業種'].replace('', '未分類').fillna('未分類')
+            sector_list = sorted(df['業種'].unique().tolist())
+            
+            selected_sector = st.selectbox("🔍 業種で絞り込み", ["すべて"] + sector_list)
+            
+            # 選択された業種でデータを絞り込む
+            if selected_sector != "すべて":
+                plot_df = df[df['業種'] == selected_sector].copy()
+            else:
+                plot_df = df.copy()
+        else:
+            st.info("💡 データを更新中、またはスプレッドシートに「業種」列がありません。")
+            plot_df = df.copy()
+
+        # 🌟修正3：絞り込んだデータ(plot_df)を使ってグラフを描画
         fig = px.scatter(
-            df, x="PER_viz", y="ROE_viz", size="アップサイド(%)", color="💡総合投資アクション", 
+            plot_df, x="PER_viz", y="ROE_viz", size="アップサイド(%)", color="💡総合投資アクション", 
             hover_name="ホバー情報", text="表示名",
             labels={'PER_viz': '割安度 (PER)', 'ROE_viz': '稼ぐ力 (ROE)'},
             color_discrete_map={
